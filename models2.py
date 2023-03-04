@@ -1,5 +1,5 @@
 from peewee import (PostgresqlDatabase, Model, TextField,
-                    IntegerField)
+                    IntegerField, ForeignKeyField)
 from dotenv import load_dotenv
 
 import os
@@ -24,23 +24,38 @@ class BaseModel(Model):
 
 
 class Hall(BaseModel):
-    pass
+    hall_id = IntegerField()
 
 
 class Author(BaseModel):
-    pass
+    author_id = IntegerField()
 
 
 class Collection(BaseModel):
-    pass
+    collection_id = IntegerField()
 
 
-class Link(BaseModel):
-    pass
+class Link():
+    link_id = IntegerField()
+    link = TextField()
+    comment = TextField()
 
 
 class Exhibit(BaseModel):
     inv_number = IntegerField()
+    theme = TextField()
+    year = IntegerField()
+    period = TextField()
+    scan = TextField()
+    technique = TextField()
+    size = TextField()
+    notes = TextField()
+    type = TextField()
+    country = TextField()
+    specificity = TextField()
+    author_id = ForeignKeyField("author_id")
+    hall_id = ForeignKeyField("hall_id")
+    collection_id = ForeignKeyField("collection_id")
 
 
 db.connect()
