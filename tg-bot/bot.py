@@ -26,7 +26,7 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     filename = f'{datetime.now().strftime("%Y-%-m-%-d-%H:%M:%S:%f")}.jpg'
 
     photo_path = str(script_path) + f'/pictures/cache/{filename}'
-
+   
     await new_file.download_to_drive(custom_path=photo_path)
 
 

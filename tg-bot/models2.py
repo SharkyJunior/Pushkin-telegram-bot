@@ -24,19 +24,18 @@ class BaseModel(Model):
 
 
 class Hall(BaseModel):
-    hall_id = IntegerField()
+    pass
 
 
 class Author(BaseModel):
-    author_id = IntegerField()
+    pass
 
 
 class Collection(BaseModel):
-    collection_id = IntegerField()
+    pass
 
 
-class Link():
-    link_id = IntegerField()
+class Link(BaseModel):
     link = TextField()
     comment = TextField()
 
@@ -53,9 +52,11 @@ class Exhibit(BaseModel):
     type = TextField()
     country = TextField()
     specificity = TextField()
-    author_id = ForeignKeyField("author_id")
-    hall_id = ForeignKeyField("hall_id")
-    collection_id = ForeignKeyField("collection_id")
+    author_id = ForeignKeyField(Author, backref='exhibits')
+    hall_id = ForeignKeyField(Hall, backref='exhibits')
+    collection_id = ForeignKeyField(Collection, backref='exhibits')
 
 
 db.connect()
+
+db.create_tables([Hall, Author, Collection, Link, Exhibit])
