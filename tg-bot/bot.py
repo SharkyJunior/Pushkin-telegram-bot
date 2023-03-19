@@ -6,6 +6,7 @@ import os
 import logging
 import pathlib
 from datetime import datetime
+from peewee import *
 
 load_dotenv()
 
@@ -30,8 +31,25 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await new_file.download_to_drive(custom_path=photo_path)
 
 
+def print_name(update: Update):
+    numb = update.message.text
+    mydb = MySQLDatabase('my_app', user='root', password='xyDRMGfx',
+                         host='localhost', port=3306)
+    cursor0 = mydb.cursor()
+    cursor0.execute(
+        "SELECT title FROM pushkin.artwork_fromwebsite WHERE id={numb};"
+    )
+    results = cursor0.fetchall()
+    for res in results:
+        print(res)
+    # row_count = cursor0.rowcount
+    # print(row_count)
+    mydb.close()
+
+
 if __name__ == '__main__':
     app.add_handler(MessageHandler(
         filters.PHOTO & filters.ChatType.PRIVATE, handlePhotos))
 
     app.run_polling()
+    print_name()
