@@ -2,6 +2,13 @@ import os
 
 import cv2
 import numpy as np
+from dotenv import load_dotenv
+
+from PIL import Image
+import numpy as np
+
+
+load_dotenv()
 
 
 def noisy(noise_type, image):
@@ -47,8 +54,28 @@ def noisy(noise_type, image):
         return noisy
 
 
+def load_image(infilename):
+    img = Image.open(infilename)
+    img.load()
+    data = np.asarray(img, dtype="int32")
+    return data
+
+
+def save_image(npdata, outfilename):
+    img = Image.fromarray(npdata.astype(np.uint8), 'RGB')
+    img.save(outfilename)
+
+
 def main():
-    print(os.walk())
+    for root, dirs, files in os.walk(os.getenv('DATASET_PATH')):
+        files = [f for f in files if not f[0] == '.']
+        dirs[:] = [d for d in dirs if not d[0] == '.']
+        for name in files:
+            pathname = os.path.join(root, name)
+            print(pathname)
+            img = load_image(pathname)
+            # noisy_img = noisy('gauss', img)
+            save_image(noisy('gauss', img), pathname + '-noisy.jpg')
 
 
 main()

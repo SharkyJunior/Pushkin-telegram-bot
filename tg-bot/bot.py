@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
 from telegram.ext import (ApplicationBuilder, MessageHandler,
-                          filters, ContextTypes)
+                          filters, ContextTypes, CommandHandler)
 from telegram import Update
 import os
 import logging
 import pathlib
 from datetime import datetime
-from peewee import *
+from db_interactor import returnRandomExhibitInfo
 
 load_dotenv()
 
@@ -18,7 +18,12 @@ logging.basicConfig(
 app = ApplicationBuilder().token(os.getenv('BOT_API_KEY')).build()
 bot = app.bot
 
-script_path = pathlib.Path(__file__).parent.resolve()
+script_path = str(pathlib.Path(__file__).parent.resolve())
+
+f = open(script_path + '/texts/notPhotoText.txt', encoding='utf-8')
+notPhotoText = f.read()
+f = open(script_path + '/texts/startText.txt', encoding='utf-8')
+startText = f.read()
 
 
 async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -26,30 +31,30 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file = await bot.get_file(photo_id)
     filename = f'{datetime.now().strftime("%Y-%-m-%-d-%H:%M:%S:%f")}.jpg'
 
-    photo_path = str(script_path) + f'/pictures/cache/{filename}'
-   
+    photo_path = script_path + f'/pictures/cache/{filename}'
+
     await new_file.download_to_drive(custom_path=photo_path)
 
+    randInfo = returnRandomExhibitInfo()
 
-def print_name(update: Update):
-    numb = update.message.text
-    mydb = MySQLDatabase('my_app', user='root', password='xyDRMGfx',
-                         host='localhost', port=3306)
-    cursor0 = mydb.cursor()
-    cursor0.execute(
-        "SELECT title FROM pushkin.artwork_fromwebsite WHERE id={numb};"
-    )
-    results = cursor0.fetchall()
-    for res in results:
-        print(res)
-    # row_count = cursor0.rowcount
-    # print(row_count)
-    mydb.close()
+    caption = f'*Название*: {randInfo[0]} \n*Автор*: {randInfo[2]} \n*Год(-ы) создания*: {randInfo[3]}'
+    await update.message.reply_photo(randInfo[1], caption=caption, parse_mode='Markdown')
 
+
+async def handleNotPhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(notPhotoText)
+
+
+async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text((f'Привет, {update.message.from_user.full_name}, ' + startText))
 
 if __name__ == '__main__':
+    returnRandomExhibitInfo()
+    app.add_handler(CommandHandler('start', handleStart))
+
     app.add_handler(MessageHandler(
         filters.PHOTO & filters.ChatType.PRIVATE, handlePhotos))
 
+    app.add_handler(MessageHandler(~filters.PHOTO, handleNotPhotos))
+
     app.run_polling()
-    print_name()
