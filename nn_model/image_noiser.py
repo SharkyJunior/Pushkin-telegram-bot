@@ -75,7 +75,7 @@ def main():
             print(pathname)
             img = load_image(pathname)
             # noisy_img = noisy('gauss', img)
-            save_image(noisy('gauss', img), pathname + '-noisy.jpg')
+            save_image(noisy('poisson', img), pathname + '-noisy.jpg')
 
 
 main()
