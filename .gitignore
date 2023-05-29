@@ -131,3 +131,5 @@ dmypy.json
 pictures/
 Pushkin_bot_dataset/
 dataset/
+runs/
+testing/
