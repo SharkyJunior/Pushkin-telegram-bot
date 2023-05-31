@@ -2,8 +2,17 @@ from peewee import MySQLDatabase
 from dotenv import load_dotenv
 import os
 import random
+import json
 
 load_dotenv()
+
+
+class JsonLoader:
+    def __init__(self):
+        self.json_data = json.load(open(os.getenv('JSON_PATH')))
+
+    def getData(self, painting_index: int) -> dict:
+        return self.json_data[painting_index]
 
 
 def returnRandomExhibitInfo():

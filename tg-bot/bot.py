@@ -9,6 +9,7 @@ from telegram.ext import (ApplicationBuilder, MessageHandler,
                           filters, ContextTypes, CommandHandler)
 from telegram import Update
 from model_operator import ModelOperator
+from db_interactor import JsonLoader
 import os
 
 
@@ -22,6 +23,7 @@ logging.basicConfig(
 app = ApplicationBuilder().token(os.getenv('BOT_API_KEY')).build()
 bot = app.bot
 op = ModelOperator()
+json_loader = JsonLoader()
 
 script_path = str(pathlib.Path(__file__).parent.resolve())
 
@@ -40,9 +42,11 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     downloaded_file = await new_file.download_to_drive(custom_path=photo_path)
 
-    output = op.classify(str(downloaded_file))
+    int_output = op.classify(str(downloaded_file))
 
-    await update.message.reply_text(str(output))
+    paint_data = json_loader.getData(int_output)
+
+    await update.message.reply_text(f'Это "{paint_data["name"]}"\n\nАвтор: {paint_data["author"]}')
 
     # randInfo = returnRandomExhibitInfo()
 
