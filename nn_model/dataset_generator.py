@@ -2,17 +2,9 @@ import os
 from image_transforms import get_transform
 from dotenv import load_dotenv
 from PIL import Image
+from utilities import progress_bar
 
 load_dotenv()
-
-
-def progress_bar(current, total, bar_length=20):
-    fraction = current / total
-
-    arrow = int(fraction * bar_length) * '#'
-    padding = int(bar_length - len(arrow)) * ' '
-
-    return f'[{arrow}{padding}] {int(fraction*100)}%'
 
 
 dataset_path = os.getenv('DATASET_PATH')
@@ -21,8 +13,8 @@ init_image_path = os.getenv('INITIAL_IMAGE_PATH')
 dest_dir_name = 'training'
 
 
-names = ['zh-2369', 'zh-3273', 'zh-3335', 'zh-3372', 'zh-3405']
-# names = ['zh-3299', 'zh-3309']
+names = ['zh-3269', 'zh-3273', 'zh-3299',
+         'zh-3309', 'zh-3335', 'zh-3372', 'zh-3405']
 n = 500
 
 try:
@@ -31,8 +23,7 @@ except Exception:
     pass
 
 for i in range(len(names)):
-    img_a = Image.open((os.getenv('INITIAL_IMAGE_PATH'),
-                        f"{names[i]}-0.jpg"))
+    img_a = Image.open(os.getenv('INITIAL_IMAGE_PATH') + f"{names[i]}-0.jpg")
 
     try:
         os.mkdir(os.path.join(dataset_path, dest_dir_name, names[i]))

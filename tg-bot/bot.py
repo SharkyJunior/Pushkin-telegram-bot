@@ -1,5 +1,3 @@
-
-from db_interactor import returnRandomExhibitInfo
 from datetime import datetime
 import pathlib
 import logging
@@ -7,7 +5,7 @@ import logging
 from dotenv import load_dotenv
 from telegram.ext import (ApplicationBuilder, MessageHandler,
                           filters, ContextTypes, CommandHandler)
-from telegram import Update
+from telegram import (Update, InlineKeyboardMarkup, InlineKeyboardButton)
 from model_operator import ModelOperator
 from db_interactor import JsonLoader
 import os
@@ -15,10 +13,7 @@ import os
 
 load_dotenv()
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+6
 
 app = ApplicationBuilder().token(os.getenv('BOT_API_KEY')).build()
 bot = app.bot
@@ -44,14 +39,23 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     int_output = op.classify(str(downloaded_file))
 
-    paint_data = json_loader.getData(int_output)
+    if int_output != -1:
+        paint_data = json_loader.getData(int_output)
 
-    await update.message.reply_text(f'Это "{paint_data["name"]}"\n\nАвтор: {paint_data["author"]}')
-
-    # randInfo = returnRandomExhibitInfo()
-
-    # caption = f'*Название*: {randInfo[0]} \n*Автор*: {randInfo[2]} \n*Год(-ы) создания*: {randInfo[3]}'
-    # await update.message.reply_photo(randInfo[1], caption=caption, parse_mode='Markdown')
+        text = (f'*Название:* {paint_data["name"]}\n' +
+                f'*Автор:* {paint_data["author"]}\n' +
+                f'*Год создания:* {paint_data["date"]}')
+        try:
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    'Узнай больше', url=f'{paint_data["url"]}')
+            ]])
+            await update.message.reply_text(text, reply_markup=keyboard,
+                                            parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(text, parse_mode="Markdown")
+    else:
+        await update.message.reply_text('Мне кажется, на этой фотке нет экспоната, который я знаю :( Попробуй еще раз')
 
 
 async def handleNotPhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -70,3 +74,4 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(~filters.PHOTO, handleNotPhotos))
 
     app.run_polling()
+

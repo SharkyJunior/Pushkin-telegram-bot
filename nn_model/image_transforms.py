@@ -1,19 +1,20 @@
-from torchvision import transforms
+import torchvision.transforms.v2 as transforms
 
 interpolation_mode = transforms.InterpolationMode.BILINEAR
 
 image_transforms = {
     'training': transforms.Compose([
-        transforms.RandomResizedCrop(size=256, scale=(0.8, 1.0)),
+        transforms.RandomResizedCrop(size=256),
+        transforms.RandomPerspective(distortion_scale=0.6, p=1,
+                                     interpolation=interpolation_mode,
+                                     fill=224),
+        transforms.CenterCrop(size=334),
         transforms.RandomRotation(degrees=20),
         transforms.RandomHorizontalFlip(),
-        transforms.CenterCrop(size=224),
-        transforms.RandomPosterize(5),
-        transforms.RandomAutocontrast(0.5),
+        # transforms.RandomPosterize(5),
+        # transforms.RandomAutocontrast(0.5),
         transforms.RandomEqualize(),
-        transforms.RandomPerspective(distortion_scale=0.4, p=0.5,
-                                     interpolation=interpolation_mode,
-                                     fill=128),
+        transforms.ColorJitter()
     ]
     ),
     'validation': transforms.Compose([

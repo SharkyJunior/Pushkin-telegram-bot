@@ -18,6 +18,10 @@ import multiprocessing
 # from matplotlib import pyplot as plt
 from torchvision import transforms
 from torchsummary import summary
+from utilities import progress_bar
+from dotenv import load_dotenv
+
+load_dotenv()
 
 train_directory = os.getenv('TRAIN_DIR')
 valid_directory = os.getenv('VALID_DIR')
@@ -106,6 +110,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=30):
             running_corrects = 0
 # Iterate over data.
             for inputs, labels in dataloaders[phase]:
+
                 inputs = inputs.to(device, non_blocking=True)
                 labels = labels.to(device, non_blocking=True)
 # zero the parameter gradients
@@ -157,6 +162,6 @@ model_ft = train_model(model_ft, criterion, optimizer_ft,
 # Save the model
 
 
-PATH = "model_2.pth"
+PATH = "model_3.pth"
 print("\nSaving the model...")
 torch.save(model_ft, PATH)

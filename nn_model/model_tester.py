@@ -8,7 +8,6 @@ from torchvision import datasets, models, transforms
 import torch.utils.data as data
 import multiprocessing
 from sklearn.metrics import confusion_matrix
-from image_transforms import ima
 
 load_dotenv()
 
@@ -45,19 +44,28 @@ lbllist = torch.zeros(0, dtype=torch.long, device='cpu')
 # Evaluate the model accuracy on the dataset
 correct = 0
 total = 0
+sum_max_conf = 0
 with torch.no_grad():
     for images, labels in eval_loader:
         images, labels = images.to(device), labels.to(device)
         outputs = model(images)
+
+        # getting array of all confidence values
+        confs = torch.nn.functional.softmax(outputs, dim=1)
+
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
+        for conf in confs:
+            sum_max_conf += max(conf)
         predlist = torch.cat([predlist, predicted.view(-1).cpu()])
         lbllist = torch.cat([lbllist, labels.view(-1).cpu()])
 # Overall accuracy
 overall_accuracy = 100 * correct / total
+avg_conf = sum_max_conf / total
 print('Accuracy of the network on the {:d} test images: {:.2f}%'.format(dsize,
                                                                         overall_accuracy))
+print(f'Average confidence: {avg_conf}')
 # Confusion matrix
 conf_mat = confusion_matrix(lbllist.numpy(), predlist.numpy())
 print('Confusion Matrix')

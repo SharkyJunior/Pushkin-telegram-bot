@@ -24,7 +24,19 @@ class ModelOperator():
         img_transformed = TRANSFORM(img)
 
         output = self.model(img_transformed.unsqueeze(0))
-        prediction = torch.argmax(output)
-        print(prediction)
+        print(output)
 
-        return int(prediction)
+        # getting all confidence values in an array
+        confs = torch.nn.functional.softmax(output, dim=1)
+        print(confs)
+
+        print(f'Confidence: {max(confs[0])}')
+        # applying confidence threshold to filter no-exhibit photos
+        if max(confs[0]) > 0.72:
+            prediction = torch.argmax(output)
+
+            print(f'Predicted class: {prediction}')
+
+            return int(prediction)
+
+        return -1
