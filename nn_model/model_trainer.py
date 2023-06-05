@@ -29,7 +29,7 @@ valid_directory = os.getenv('VALID_DIR')
 
 bs = 64    # batch size
 num_epochs = 5
-num_classes = 7
+num_classes = 12
 
 image_transform = transforms.Compose([
     transforms.ToTensor(),
@@ -166,6 +166,6 @@ model_ft = train_model(model_ft, criterion, optimizer_ft,
 # Save the model
 
 
-PATH = "model_4.pth"
+PATH = "models/model_4.pth"
 print("\nSaving the model...")
 torch.save(model_ft, PATH)

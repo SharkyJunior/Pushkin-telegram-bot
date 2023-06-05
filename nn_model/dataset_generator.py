@@ -11,7 +11,7 @@ load_dotenv()
 dataset_path = os.getenv('DATASET_PATH')
 init_image_path = os.getenv('INITIAL_IMAGE_PATH')
 
-dest_dir_name = 'training'
+dest_dir_name = 'validation'
 
 
 # names = ['zh-3269', 'zh-3273', 'zh-3299',
