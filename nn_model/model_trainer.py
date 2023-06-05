@@ -1,25 +1,26 @@
 
-import numpy as np  # linear algebra
+import argparse
+import copy
+import multiprocessing
+
 # import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
 import os
+import time
+
+import numpy as np  # linear algebra
 import torch
-import torchvision
-from torchvision import datasets, models, transforms
-import torch.utils.data as data
-from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim import lr_scheduler
-import time
-import os
-import copy
-import argparse
-import multiprocessing
-# from matplotlib import pyplot as plt
-from torchvision import transforms
-from torchsummary import summary
-from utilities import progress_bar
+import torch.utils.data as data
+import torchvision
 from dotenv import load_dotenv
+from torch.optim import lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
+from torchsummary import summary
+
+# from matplotlib import pyplot as plt
+from torchvision import datasets, models, transforms
+from utilities import progress_bar
 
 load_dotenv()
 
@@ -27,7 +28,7 @@ train_directory = os.getenv('TRAIN_DIR')
 valid_directory = os.getenv('VALID_DIR')
 
 bs = 64    # batch size
-num_epochs = 2
+num_epochs = 5
 num_classes = 7
 
 image_transform = transforms.Compose([
@@ -73,6 +74,7 @@ model_ft.fc = nn.Linear(num_ftrs, num_classes)
 print('Model Summary:-\n')
 for num, (name, param) in enumerate(model_ft.named_parameters()):
     print(num, name, param.requires_grad)
+model_ft = model_ft.to(device)
 summary(model_ft, input_size=(3, 224, 224))
 print(model_ft)
 model_ft = model_ft.to(device)
@@ -85,6 +87,8 @@ optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
 # Learning rate decay
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
+
+print(f'CUDA available: {torch.cuda.is_available()}')
 
 # Model training routine
 print("\nTraining:-\n")
@@ -162,6 +166,6 @@ model_ft = train_model(model_ft, criterion, optimizer_ft,
 # Save the model
 
 
-PATH = "model_3.pth"
+PATH = "model_4.pth"
 print("\nSaving the model...")
 torch.save(model_ft, PATH)
