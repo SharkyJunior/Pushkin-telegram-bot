@@ -1,5 +1,5 @@
 import os
-from image_transforms import get_transform
+from image_transforms import get_image_transform
 from dotenv import load_dotenv
 from PIL import Image
 from utilities import progress_bar
@@ -31,7 +31,7 @@ for i in range(len(names)):
         pass
 
     for x in range(n):
-        img_b = get_transform(dest_dir_name)(img_a)
+        img_b = get_image_transform(dest_dir_name)(img_a)
         img_b.save(f'dataset/{dest_dir_name}/{names[i]}/{x}.jpg')
         print(
             f'{names[i]} ({i+1}/{len(names)}): {progress_bar(x+1, n)}',
