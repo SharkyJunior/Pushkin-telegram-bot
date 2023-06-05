@@ -16,7 +16,7 @@ TRANSFORM = get_transform('classification')
 
 class ModelOperator():
     def __init__(self):
-        self.model = torch.load(EVAL_MODEL)
+        self.model = torch.load(EVAL_MODEL, map_location='cpu')
         self.model.eval()
 
     def classify(self, img_path: str) -> int:
@@ -32,7 +32,7 @@ class ModelOperator():
 
         print(f'Confidence: {max(confs[0])}')
         # applying confidence threshold to filter no-exhibit photos
-        if max(confs[0]) > 0.72:
+        if max(confs[0]) > 0.6:
             prediction = torch.argmax(output)
 
             print(f'Predicted class: {prediction}')

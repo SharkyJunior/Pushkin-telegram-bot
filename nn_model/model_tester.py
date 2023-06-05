@@ -12,7 +12,7 @@ from sklearn.metrics import confusion_matrix
 load_dotenv()
 
 EVAL_MODEL = os.getenv('EVAL_MODEL')
-model = torch.load(EVAL_MODEL)
+model = torch.load(EVAL_MODEL, map_location='cpu')
 model.eval()
 
 

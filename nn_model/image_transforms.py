@@ -1,6 +1,9 @@
 import random
 
 import torchvision.transforms.v2 as transforms
+import torchvision
+
+torchvision.disable_beta_transforms_warning()
 
 interpolation_mode = transforms.InterpolationMode.BILINEAR
 
@@ -8,7 +11,7 @@ interpolation_mode = transforms.InterpolationMode.BILINEAR
 def get_image_transform(type: str):
     image_transforms = {
         'training': transforms.Compose([
-            transforms.CenterCrop(size=random.randint(300, 500)),
+            transforms.CenterCrop(size=random.randint(600, 900)),
             transforms.RandomResizedCrop(size=256),
             transforms.RandomPerspective(distortion_scale=random.uniform(0.3, 0.7), p=1,
                                          interpolation=interpolation_mode,
