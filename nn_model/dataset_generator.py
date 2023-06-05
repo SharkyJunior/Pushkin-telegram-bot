@@ -1,6 +1,7 @@
 import os
-from image_transforms import get_image_transform
+
 from dotenv import load_dotenv
+from image_transforms import get_image_transform
 from PIL import Image
 from utilities import progress_bar
 
@@ -10,12 +11,12 @@ load_dotenv()
 dataset_path = os.getenv('DATASET_PATH')
 init_image_path = os.getenv('INITIAL_IMAGE_PATH')
 
-dest_dir_name = 'training'
+dest_dir_name = 'validation'
 
 
 names = ['zh-3269', 'zh-3273', 'zh-3299',
          'zh-3309', 'zh-3335', 'zh-3372', 'zh-3405']
-n = 500
+n = 300
 
 try:
     os.mkdir(os.path.join(dataset_path, dest_dir_name))
