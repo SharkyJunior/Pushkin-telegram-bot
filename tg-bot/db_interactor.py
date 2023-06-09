@@ -13,7 +13,7 @@ class JsonLoader:
         self.quiz_data = json.load(open(os.getenv('QUIZ_INFO_PATH')))
         self.settings_data = json.load(open(os.getenv('SETTINGS_DATA_PATH')))
         self.class_amt = len(self.painting_data)
-        self.favourites_data = json.load(
+        self.favourites = json.load(
             open(os.getenv('FAVOURITES_DATA_PATH')))
 
     def getPaintingData(self, painting_index: int) -> dict:
@@ -32,12 +32,12 @@ class JsonLoader:
         json.dump(settings_data, open(os.getenv('SETTINGS_DATA_PATH'), 'w'))
 
     def getFavouritesData(self, user_id: int) -> int:
-        self.favourites_data = json.load(
+        self.favourites = json.load(
             open(os.getenv('FAVOURITES_DATA_PATH')))
-        return self.favourites_data[str(user_id)]
+        return self.favourites[str(user_id)]
 
-    def updateFavouritesData(self, settings_data: dict) -> None:
-        json.dump(favourites_data, open(
+    def updateFavouritesData(self, favourites: dict) -> None:
+        json.dump(favourites, open(
             os.getenv('FAVOURITES_DATA_PATH'), 'w'))
 
 

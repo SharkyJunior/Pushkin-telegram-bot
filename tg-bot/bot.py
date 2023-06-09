@@ -84,9 +84,15 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await asyncio.sleep(1)
 
-        keyboard = [[InlineKeyboardButton(
-            'Добавить в избранное',
-            callback_data='add_to_favourites')]]
+        favourites = json_loader.getFavouritesData()
+        if int_output not in favourites[update.effective_chat.id]:
+            keyboard = [[InlineKeyboardButton(
+                'Добавить в избранное',
+                callback_data=f'add_to_favourites, {int_output}')]]
+        else:
+            keyboard = [[InlineKeyboardButton(
+                'Удалить из избранных',
+                callback_data=f'delete_from_favourites, {int_output}')]]
 
         # handling possible exception if no url with more info was found
         try:
@@ -118,6 +124,9 @@ async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(1)
 
     id_list.append(update.effective_chat.id)
+    favourites = json_loader.getFavouritesData()
+    favourites.append(update.effective_chat.id)
+    json_loader.updateFavouritesData(favourites)
 
     # if user is talking to bot for the first time
     settings_data = json_loader.getSettingsData()
@@ -133,16 +142,15 @@ async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         (f'Привет, {update.message.from_user.full_name}, ' + startText))
-    # current_dateTime = datetime.now()
-    # while True:
-    #     if (current_dateTime.minute == 0):  # current_dateTime.hour == 10
-    #         await bot.send_message(chat_id=update.effective_chat.id,
-    #                                text='Hello')
-    #         await asyncio.sleep(60)
-    #     else:
-    #         await asyncio.sleep(60)
-    #     current_dateTime = datetime.now()
 
+
+# TODO: make settings menu dynamic (it changes depending on user settings)
+async def handleSettings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton('Включить регулярные вопросы')
+        ]
+    ])
 
 @send_typing_action
 async def handleQuizCmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -185,18 +193,15 @@ async def handleQuizCmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(ongoing_quizes)
 
 
-# TODO: make settings menu dynamic (it changes depending on user settings)
-async def handleSettings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton('Включить регулярные вопросы')
-        ]
-    ])
+async def handleShowFavourites(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    favourites = json_loader.getFavouritesData()
+    await update.message.reply_text(favourites[update.effective_chat.id])
 
 
-async def handleCallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_answer = update.callback_query.data
     settings_data = json_loader.getSettingsData()
+    favourites = json_loader.getFavouritesData()
 
     # handling quiz answers
     if user_answer.isdigit():
@@ -277,9 +282,18 @@ async def handleCallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await asyncio.sleep(5)
         await update.callback_query.delete_message()
 
-    elif user_answer == 'add_to_favourites':
-        # favourites
+    elif 'add_to_favourites' in user_answer:
+        # pass
+        int_op = int(user_answer[user_answer.find(",") + 1:])
+        favourites[update.effective_chat.id].append(int_op) 
+        json_loader.updateFavouritesData(favourites)
 
+    elif 'delete_from_favourites' in user_answer:
+        # pass
+        int_op = int(user_answer[user_answer.find(",") + 1:])
+        favourites[update.effective_chat.id].remove(int_op) 
+        json_loader.updateFavouritesData(favourites)
+        
 
 async def callback_time(context: ContextTypes.DEFAULT_TYPE):
     for i in id_list:
@@ -303,11 +317,12 @@ if __name__ == '__main__':
     job_minute = job_queue.run_repeating(
         callback_time, interval=60*60, first=firstwork)  # 3*24*60*60
     
-    app.add_handler(CallbackQueryHandler(handleCallback))
+    app.add_handler(CallbackQueryHandler(handleCallBack))
 
     app.add_handler(CommandHandler('start', handleStart))
     app.add_handler(CommandHandler('settings', handleSettings))
     app.add_handler(CommandHandler('quiz', handleQuizCmd))
+    app.add_handler(CommandHandler('show_favourites', handleShowFavourites))
 
     app.add_handler(MessageHandler(
         filters.PHOTO & filters.ChatType.PRIVATE, handlePhotos))
