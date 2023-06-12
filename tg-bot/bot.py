@@ -17,6 +17,7 @@ from telegram import (Update, InlineKeyboardMarkup, InlineKeyboardButton)
 from telegram.constants import ChatAction
 from model_operator import ModelOperator
 from db_interactor import JsonLoader
+from fav_utils import generatePaintingSelectionTextButtons
 import quiz
 import os
 
@@ -48,7 +49,6 @@ app = ApplicationBuilder().token(os.getenv('BOT_API_KEY')).build()
 bot = app.bot
 op = ModelOperator()
 json_loader = JsonLoader()
-ongoing_quizes = {}
 
 script_path = str(pathlib.Path(__file__).parent.resolve())
 
@@ -59,8 +59,15 @@ startText = f.read()
 f = open(script_path + '/texts/afterFirstQuiz.txt', encoding='utf-8')
 afterFirstQuiz = f.read()
 
-id_list = []
-firstwork = 0
+opened_favourites = {}
+
+
+hours_to_send_quizes = {
+    "1": [9],
+    "2": [9, 20],
+    "3": [9, 15, 20],
+    "4": [9, 12, 16, 20],
+}
 
 
 @send_typing_action
@@ -84,34 +91,36 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await asyncio.sleep(1)
 
+        keyboard: list
+
         favourites = json_loader.getFavouritesData()
-        if int_output not in favourites[update.effective_chat.id]:
+        if int_output not in favourites[str(update.message.from_user.id)]:
             keyboard = [[InlineKeyboardButton(
-                'Добавить в избранное',
+                '❤️ Добавить в избранное',
                 callback_data=f'add_to_favourites, {int_output}')]]
         else:
             keyboard = [[InlineKeyboardButton(
-                'Удалить из избранных',
+                '💔 Удалить из избранных',
                 callback_data=f'delete_from_favourites, {int_output}')]]
 
         # handling possible exception if no url with more info was found
         try:
             keyboard.append(
                 [
-                    InlineKeyboardButton(
-                        'Узнать больше', url=f'{paint_data["url"]}')
+                    InlineKeyboardButton('Узнать больше', url=f'{paint_data["url"]}')
                 ]
             )
         except Exception as e:
             pass
 
-        await update.message.reply_text(text, reply_markup=keyboard,
-                                        parse_mode="Markdown")
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard),
+                                        parse_mode="Markdown",
+                                        reply_to_message_id=update.message.id)
     else:
         await asyncio.sleep(1)
         await update.message.reply_text(
-            'Мне кажется, на этой фотографии нет экспоната, который я знаю :('
-            + '\nПопробуйте еще раз'
+            'Мне кажется, на этой фотографии нет экспоната, который я знаю :(\nПопробуйте еще раз',
+            reply_to_message_id=update.message.id
         )
 
 
@@ -121,12 +130,11 @@ async def handleNotPhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @send_typing_action
 async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"USER_ID: {update.message.from_user.id}")
+    print(f"CHAT_ID: {update.effective_chat.id}")
     await asyncio.sleep(1)
 
-    id_list.append(update.effective_chat.id)
     favourites = json_loader.getFavouritesData()
-    favourites.append(update.effective_chat.id)
-    json_loader.updateFavouritesData(favourites)
 
     # if user is talking to bot for the first time
     settings_data = json_loader.getSettingsData()
@@ -139,6 +147,9 @@ async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'quizNotPlayed': True,
         }
         json_loader.updateSettingsData(settings_data)
+    if user_id not in favourites:
+        favourites[user_id] = []
+        json_loader.updateFavouritesData(favourites)
 
     await update.message.reply_text(
         (f'Привет, {update.message.from_user.full_name}, ' + startText))
@@ -146,56 +157,45 @@ async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # TODO: make settings menu dynamic (it changes depending on user settings)
 async def handleSettings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_settings = json_loader.getSettingsData()[str(update.effective_user.id)]
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton('Включить регулярные вопросы')
         ]
     ])
 
+
 @send_typing_action
 async def handleQuizCmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    painting_index = random.randint(0, json_loader.class_amt-1)
+    image_path, keyboard = quiz.generateQuizData()
 
-    image_path = os.path.join(
-        os.getenv("QUIZ_IMAGES_PATH"), f'{painting_index}.jpg')
-
-    correctArtist, falseArtists = quiz.generateArtistAnswers(painting_index)
-
-    answer_pool = [correctArtist]
-    answer_pool.extend(falseArtists)
-    random.shuffle(answer_pool)
-    correctIndex = answer_pool.index(correctArtist)
-
-    ongoing_quizes[str(update.message.from_user.id)] = [painting_index,
-                                                        correctIndex]
-
-    keyboard = [
-        [
-            InlineKeyboardButton(answer_pool[0], callback_data=0),
-        ],
-        [
-            InlineKeyboardButton(answer_pool[1], callback_data=1),
-        ],
-        [
-            InlineKeyboardButton(answer_pool[2], callback_data=2),
-        ],
-        [
-            InlineKeyboardButton(answer_pool[3], callback_data=3),
-        ]
-    ]
-
-    await update.message.reply_photo(image_path,
-                                     caption="Кто написал эту картину?",
-                                     reply_markup=InlineKeyboardMarkup(
-                                         keyboard)
-                                     )
-
-    print(ongoing_quizes)
+    await update.message.reply_photo(image_path, caption="Кто написал эту картину?",
+                                     reply_markup=keyboard)
 
 
+@send_typing_action
 async def handleShowFavourites(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    favourites = json_loader.getFavouritesData()
-    await update.message.reply_text(favourites[update.effective_chat.id])
+    user_id = update.message.from_user.id
+
+    user_favourites: list = json_loader.getFavouritesData()[str(user_id)]
+
+    if str(user_id) not in opened_favourites and len(user_favourites) > 0:
+        text, keyboard = generatePaintingSelectionTextButtons(user_favourites)
+
+        favorites_list = await update.message.reply_text(text, reply_markup=keyboard,
+                                                         parse_mode="Markdown")
+        opened_favourites[str(user_id)] = [favorites_list.id, 0]
+    elif len(user_favourites) <= 0:
+        favorites_list = await update.message.reply_text('У тебя нет понравившихся картин. Ты сможешь лайкнуть картину, когда отправишь мне ее фотографию')
+    else:
+        try:
+            error_message = await context.bot.send_message(user_id, '👆 У тебя уже есть открытый список понравившихся 👆',
+                                                           reply_to_message_id=opened_favourites[str(user_id)][0])
+            await asyncio.sleep(10)
+            await error_message.delete()
+        except Exception:
+            opened_favourites.pop(str(update.message.from_user.id), None)
+            await handleShowFavourites(update, context)
 
 
 async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -204,27 +204,35 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     favourites = json_loader.getFavouritesData()
 
     # handling quiz answers
-    if user_answer.isdigit():
-        correct_answer = ongoing_quizes[str(
-            update.callback_query.from_user.id)][1]
+    if re.match(r'^[01]{1} [\d]{1,}$', user_answer):
+        data = [int(i) for i in user_answer.split()]
+        print(data)
 
-        paint_data = json_loader.getPaintingData(
-            ongoing_quizes[str(update.callback_query.from_user.id)][0])
-        if int(user_answer) == correct_answer:
+        paint_data = json_loader.getPaintingData(data[1])
+        keyboard = []
+        try:
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        'Узнать больше', url=f'{paint_data["url"]}')
+                ]
+            )
+        except Exception as e:
+            pass
+
+        if data[0] == 1:
             await update.callback_query.edit_message_caption(
-                f"Правильный ответ! \nЭто *{paint_data['name']}*,"
-                + f"автор - *{paint_data['author']}*",
-                reply_markup=None, parse_mode="Markdown")
+                f"Правильный ответ! \nЭто *{paint_data['name']}*,\n"
+                + f"Автор - *{paint_data['author']}*",
+                reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         else:
             await update.callback_query.edit_message_caption(
-                f"Неверно :( \nАвтор этой картины - *{paint_data['author']}*."
+                f"Неверно :( \nАвтор этой картины - *{paint_data['author']}*.\n"
                 + f"Картина называется *{paint_data['name']}*",
-                reply_markup=None, parse_mode="Markdown")
-
-        await asyncio.sleep(1)
+                reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
         # recurring quizes prompt after first time playing quiz
-        if settings_data[str(update.callback_query.from_user.id)]['quizNotPlayed'] == True:
+        if settings_data[str(update.callback_query.from_user.id)]['quizNotPlayed']:
             keyboard = InlineKeyboardMarkup(
                 [
                     [
@@ -270,7 +278,8 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_answer == 'firstQuiz_no':
         await update.callback_query.edit_message_text(
-            'Хорошо. Если передумаешь - включай регулярные вопросы в настройках (/settings)', reply_markup=None)
+            'Хорошо. Если передумаешь - включай регулярные вопросы в настройках (/settings)',
+            reply_markup=None)
 
     elif re.match(r'^first_timesPerDay-[\d]{1}$', user_answer) is not None:
         settings_data[str(update.callback_query.from_user.id)
@@ -278,32 +287,174 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         json_loader.updateSettingsData(settings_data)
 
-        await update.callback_query.edit_message_text('Все, теперь я буду теперь присылать регулярные вопросы.', reply_markup=None)
+        await update.callback_query.edit_message_text(
+            'Все, теперь я буду присылать регулярные вопросы.', reply_markup=None)
         await asyncio.sleep(5)
         await update.callback_query.delete_message()
 
     elif 'add_to_favourites' in user_answer:
-        # pass
         int_op = int(user_answer[user_answer.find(",") + 1:])
-        favourites[update.effective_chat.id].append(int_op) 
+        user_id = update.effective_user.id
+        if int_op not in favourites[str(user_id)]:
+            favourites[str(user_id)].append(int_op)
         json_loader.updateFavouritesData(favourites)
+        if str(user_id) in opened_favourites:
+            user_favorites = favourites[str(user_id)]
+            fav_list = opened_favourites[str(user_id)]
+
+            text, keyboard = generatePaintingSelectionTextButtons(user_favorites, fav_list[1])
+
+            try:
+                await context.bot.edit_message_text(text, user_id, fav_list[0],
+                                                    reply_markup=keyboard,
+                                                    parse_mode='Markdown')
+            except Exception:
+                pass
+
+        await update.callback_query.answer('✅ Добавлено в избранные')
+
+        paint_data = json_loader.getPaintingData(int_op)
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton('💔 Удалить из избранных',
+                                         callback_data=f'delete_from_favourites, {int_op}')
+                ]
+            ]
+        )
+
+        # handling possible exception if no url with more info was found
+        try:
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        'Узнать больше', url=f'{paint_data["url"]}')
+                ]
+            )
+        except Exception as e:
+            pass
+
+        await update.callback_query.edit_message_reply_markup(keyboard)
 
     elif 'delete_from_favourites' in user_answer:
-        # pass
         int_op = int(user_answer[user_answer.find(",") + 1:])
-        favourites[update.effective_chat.id].remove(int_op) 
+        user_id = update.effective_user.id
+        favourites[str(user_id)].remove(int_op)
         json_loader.updateFavouritesData(favourites)
-        
+        if str(user_id) in opened_favourites:
+            user_favorites = favourites[str(user_id)]
+            fav_list = opened_favourites[str(user_id)]
+
+            text, keyboard = generatePaintingSelectionTextButtons(user_favorites, fav_list[1])
+
+            try:
+                await context.bot.edit_message_text(text, user_id, fav_list[0],
+                                                    reply_markup=keyboard,
+                                                    parse_mode='Markdown')
+            except Exception:
+                pass
+        await update.callback_query.answer('✅ Удалено из избранных')
+
+        paint_data = json_loader.getPaintingData(int_op)
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton('❤️ Добавить в избранное',
+                                         callback_data=f'add_to_favourites, {int_op}')
+                ]
+            ]
+        )
+
+        # handling possible exception if no url with more info was found
+        try:
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        'Узнать больше', url=f'{paint_data["url"]}')
+                ]
+            )
+        except Exception as e:
+            pass
+
+        await update.callback_query.edit_message_reply_markup(keyboard)
+
+    elif 'close' in user_answer:
+        await update.callback_query.delete_message()
+        if user_answer == 'close_fav':
+            opened_favourites.pop(str(update.callback_query.from_user.id), None)
+
+    elif re.match(r'^pnt_btn_[\d]{1,}$', user_answer) is not None:
+        painting_id = int(user_answer[user_answer.rfind('_')+1:])
+        paint_data = json_loader.getPaintingData(painting_id)
+        image_path = os.path.join(os.getenv("QUIZ_IMAGES_PATH"), f'{painting_id}.jpg')
+
+        keyboard = []
+        try:
+            keyboard.append(
+                [
+                    InlineKeyboardButton('Узнать больше', url=f'{paint_data["url"]}')
+                ]
+            )
+        except Exception as e:
+            pass
+
+        keyboard.append([InlineKeyboardButton('🚫 Закрыть меню', callback_data='close_fav')])
+
+        text = (f'*Название:* {paint_data["name"]}\n' +
+                f'*Автор:* {paint_data["author"]}\n' +
+                f'*Год создания:* {paint_data["date"]}')
+
+        await context.bot.send_photo(update.effective_user.id, image_path, text,
+                                     reply_markup=InlineKeyboardMarkup(keyboard),
+                                     parse_mode='Markdown')
+
+    elif re.match(r'^next_pg_[\d]{1,}$', user_answer) is not None:
+        next_pg = int(re.findall(r'\d+', user_answer)[0])
+        user_favorites = json_loader.getFavouritesData()[str(update.effective_user.id)]
+
+        text, keyboard = generatePaintingSelectionTextButtons(user_favorites, next_pg)
+
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
+        opened_favourites[str(user_id)][1] = next_pg
+
 
 async def callback_time(context: ContextTypes.DEFAULT_TYPE):
-    for i in id_list:
-        await context.bot.send_message(chat_id=i, text='message')
+    settings_data = json_loader.getSettingsData()
+    current_time = datetime.now()
+    print('-' * 30)
+    print('Time to ping - ' + current_time.strftime('%H:%M:%S'))
+
+    # collecting all periods we need to ping based on the current hour
+    periods_to_ping = []
+    for i in range(1, len(hours_to_send_quizes) + 1):
+        if current_time.hour in hours_to_send_quizes[str(i)]:
+            periods_to_ping.append(i)
+    print('Periods to ping: ' + ', '.join([str(i) for i in periods_to_ping]) + '\n')
+
+    # pinging all users who opted in recurring quizes
+    for user_id, user_data in settings_data.items():
+        if (user_data['recurringEnabled']
+                and user_data['recurringTimesPerDay'] in periods_to_ping):
+            image_path, keyboard = quiz.generateQuizData()
+
+            # if user has blocked the bot, then catching exception
+            try:
+                await context.bot.send_photo(chat_id=user_id,
+                                             caption='Кто написал эту картину?',
+                                             photo=image_path,
+                                             reply_markup=keyboard)
+                print(f'[i] Sent quiz to user {user_id}')
+            except Exception:
+                print(f'[!] Failed to send quiz to user {user_id}')
+
+    print('-' * 30)
 
 
 def count_min_sec_remainder() -> int:
     now = datetime.now()
-    return (60-now.minute, 60-now.second)
-    
+    return (59-now.minute, 60-now.second)
+
     # mins1 = (33-current_dateTime.hour) * 60
     # mins2 = 60-current_dateTime.minute
     # global firstwork
@@ -313,20 +464,24 @@ def count_min_sec_remainder() -> int:
 if __name__ == '__main__':
     job_queue = app.job_queue
     delta = count_min_sec_remainder()
-    firstwork = datetime.now() + timedelta(minutes=delta[0], seconds=delta[1])
+    jobdelta = timedelta(minutes=delta[0], seconds=delta[1])
+    print(f'Time delta: {delta[0]}m {delta[1]}s\n' + '-' * 30)
     job_minute = job_queue.run_repeating(
-        callback_time, interval=60*60, first=firstwork)  # 3*24*60*60
-    
+        callback_time, interval=60*60, first=jobdelta)
+
+    job_queue.start()
+
     app.add_handler(CallbackQueryHandler(handleCallBack))
 
     app.add_handler(CommandHandler('start', handleStart))
     app.add_handler(CommandHandler('settings', handleSettings))
     app.add_handler(CommandHandler('quiz', handleQuizCmd))
-    app.add_handler(CommandHandler('show_favourites', handleShowFavourites))
+    app.add_handler(CommandHandler('favourites', handleShowFavourites))
 
     app.add_handler(MessageHandler(
         filters.PHOTO & filters.ChatType.PRIVATE, handlePhotos))
 
-    app.add_handler(MessageHandler(~filters.PHOTO, handleNotPhotos))
+    app.add_handler(MessageHandler(~filters.PHOTO &
+                                   ~filters.COMMAND, handleNotPhotos))
 
     app.run_polling()

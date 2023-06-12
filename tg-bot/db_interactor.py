@@ -31,10 +31,10 @@ class JsonLoader:
     def updateSettingsData(self, settings_data: dict) -> None:
         json.dump(settings_data, open(os.getenv('SETTINGS_DATA_PATH'), 'w'))
 
-    def getFavouritesData(self, user_id: int) -> int:
+    def getFavouritesData(self) -> dict:
         self.favourites = json.load(
             open(os.getenv('FAVOURITES_DATA_PATH')))
-        return self.favourites[str(user_id)]
+        return self.favourites
 
     def updateFavouritesData(self, favourites: dict) -> None:
         json.dump(favourites, open(
