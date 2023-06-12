@@ -17,7 +17,7 @@ from telegram import (Update, InlineKeyboardMarkup, InlineKeyboardButton)
 from telegram.constants import ChatAction
 from model_operator import ModelOperator
 from db_interactor import JsonLoader
-from fav_utils import generatePaintingSelectionTextButtons
+from utils import generatePaintingSelectionTextButtons, generateSettingsTextButtons
 import quiz
 import os
 
@@ -60,6 +60,7 @@ f = open(script_path + '/texts/afterFirstQuiz.txt', encoding='utf-8')
 afterFirstQuiz = f.read()
 
 opened_favourites = {}
+opened_settings = {}
 
 
 hours_to_send_quizes = {
@@ -143,7 +144,6 @@ async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         settings_data[user_id] = {
             'recurringEnabled': False,
             'recurringTimesPerDay': 1,
-            'quizHardMode': True,
             'quizNotPlayed': True,
         }
         json_loader.updateSettingsData(settings_data)
@@ -157,12 +157,25 @@ async def handleStart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # TODO: make settings menu dynamic (it changes depending on user settings)
 async def handleSettings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_settings = json_loader.getSettingsData()[str(update.effective_user.id)]
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton('Включить регулярные вопросы')
-        ]
-    ])
+    user_id = update.effective_user.id
+    if str(user_id) not in opened_settings:
+        user_settings = json_loader.getSettingsData()[str(user_id)]
+        user_favorites = json_loader.getFavouritesData()[str(user_id)]
+
+        text, keyboard = generateSettingsTextButtons(user_settings, len(user_favorites))
+
+        settings_menu = await update.message.reply_text(text, reply_markup=keyboard,
+                                                        parse_mode="Markdown")
+        opened_settings[str(update.effective_user.id)] = settings_menu.id
+    else:
+        try:
+            error_message = await context.bot.send_message(user_id, '👆 Настройки уже открыты        👆',
+                                                           reply_to_message_id=opened_settings[str(user_id)])
+            await asyncio.sleep(10)
+            await error_message.delete()
+        except Exception:
+            opened_settings.pop(str(update.message.from_user.id), None)
+            await handleSettings(update, context)
 
 
 @send_typing_action
@@ -202,6 +215,7 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_answer = update.callback_query.data
     settings_data = json_loader.getSettingsData()
     favourites = json_loader.getFavouritesData()
+    user_id = update.effective_user.id
 
     # handling quiz answers
     if re.match(r'^[01]{1} [\d]{1,}$', user_answer):
@@ -291,6 +305,19 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Все, теперь я буду присылать регулярные вопросы.', reply_markup=None)
         await asyncio.sleep(5)
         await update.callback_query.delete_message()
+
+    elif re.match(r'^timesPerDay-[\d]{1}$', user_answer) is not None:
+        settings_data[str(update.callback_query.from_user.id)
+                      ]['recurringTimesPerDay'] = int(user_answer[-1])
+
+        json_loader.updateSettingsData(settings_data)
+        await update.callback_query.answer('✅ Сохранено')
+
+        text, keyboard = generateSettingsTextButtons(
+            settings_data[str(user_id)], len(favourites[str(user_id)]))
+
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
 
     elif 'add_to_favourites' in user_answer:
         int_op = int(user_answer[user_answer.find(",") + 1:])
@@ -417,6 +444,70 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(text, reply_markup=keyboard,
                                                       parse_mode='Markdown')
         opened_favourites[str(user_id)][1] = next_pg
+
+    elif user_answer == 'reset_favs':
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton('Да, сбросить', callback_data='reset_yes'),
+            ],
+            [
+                InlineKeyboardButton('Нет, оставить', callback_data='back_settings'),
+            ]
+        ])
+
+        text = '🛑 *Внимание* 🛑\nТы действительно хочешь *сбросить* список понравившихся картин?'
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
+
+    elif user_answer == 'reset_yes':
+        favourites[str(user_id)] = []
+        json_loader.updateFavouritesData(favourites)
+        await update.callback_query.answer('✅ Список сброшен', show_alert=True)
+
+        text, keyboard = generateSettingsTextButtons(settings_data[str(user_id)], 0)
+
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
+
+    elif user_answer == 'back_settings':
+        text, keyboard = generateSettingsTextButtons(
+            settings_data[str(user_id)], len(favourites[str(user_id)]))
+
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
+
+    elif user_answer == 'on_off_quizes':
+        settings_data[str(user_id)]['recurringEnabled'] = not settings_data[str(
+            user_id)]['recurringEnabled']
+        json_loader.updateSettingsData(settings_data)
+
+        text, keyboard = generateSettingsTextButtons(
+            settings_data[str(user_id)], len(favourites[str(user_id)]))
+
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
+
+    elif user_answer == 'change_freq':
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton('1 раз в день',
+                                         callback_data="timesPerDay-1"),
+                    InlineKeyboardButton(
+                        '2 раза в день', callback_data="timesPerDay-2")
+                ],
+                [
+                    InlineKeyboardButton('3 раза в день',
+                                         callback_data="timesPerDay-3"),
+                    InlineKeyboardButton(
+                        '4 раза в день', callback_data="timesPerDay-4")
+                ]
+            ]
+        )
+
+        await update.callback_query.edit_message_text('⚙️ *Настройки*\n\nВыберите опцию:',
+                                                      reply_markup=keyboard,
+                                                      parse_mode='Markdown')
 
 
 async def callback_time(context: ContextTypes.DEFAULT_TYPE):

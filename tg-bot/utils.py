@@ -50,3 +50,28 @@ def generatePaintingSelectionTextButtons(user_favourites: list, page: int = 0):
     keyboard.append([InlineKeyboardButton('🚫 Закрыть меню', callback_data='close_fav')])
 
     return text, InlineKeyboardMarkup(keyboard)
+
+
+def generateSettingsTextButtons(user_settings: dict, favourites_number: int):
+    text = '⚙️ *Настройки*\n\nРегулярные вопросы: ' + \
+        ('🔔 включены' if user_settings['recurringEnabled'] else '🔕 выключены')
+    if user_settings['recurringEnabled']:
+        text += '\nКоличество вопросов в день: ' + str(user_settings['recurringTimesPerDay'])
+
+    text += '\n\nПонравившиеся картины: ' + str(favourites_number)
+
+    keyboard = []
+    if user_settings['recurringEnabled']:
+        keyboard.append([
+            InlineKeyboardButton('🔕 Выключить регулярные вопросы', callback_data='on_off_quizes'),
+            InlineKeyboardButton('Частота вопросов...', callback_data='change_freq')
+        ])
+    else:
+        keyboard.append([
+            InlineKeyboardButton('🔔 Включить регулярные вопросы', callback_data='on_off_quizes'),
+        ])
+    keyboard.append([
+        InlineKeyboardButton('🗑 Сбросить список понравившихся картин', callback_data='reset_favs')
+    ])
+
+    return text, InlineKeyboardMarkup(keyboard)
