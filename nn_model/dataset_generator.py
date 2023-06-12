@@ -11,7 +11,7 @@ load_dotenv()
 dataset_path = os.getenv('DATASET_PATH')
 init_image_path = os.getenv('INITIAL_IMAGE_PATH')
 
-dest_dir_name = 'training'
+dest_dir_name = 'validation'
 
 
 # names = ['zh-3269', 'zh-3273', 'zh-3299',
@@ -20,6 +20,7 @@ n = 300
 class_amt = 17
 
 try:
+    print(os.path.join(dataset_path, dest_dir_name))
     os.mkdir(os.path.join(dataset_path, dest_dir_name))
 except Exception:
     pass
