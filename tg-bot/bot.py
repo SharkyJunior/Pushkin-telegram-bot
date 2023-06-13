@@ -312,19 +312,28 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer('✅ Добавлено в избранные')
 
         paint_data = json_loader.getPaintingData(int_op)
-        keyboard = InlineKeyboardMarkup(
+        keyboard = [
             [
-                [
-                    InlineKeyboardButton('💔 Удалить из избранных',
-                                         callback_data=f'delete_from_favourites, {int_op}')
-                ],
-                [
-                    update.callback_query.message.reply_markup.inline_keyboard[1][0]
-                ]
-            ]
-        )
+                InlineKeyboardButton('💔 Удалить из избранных',
+                                     callback_data=f'delete_from_favourites, {int_op}')
+            ],
+        ]
 
-        await update.callback_query.edit_message_reply_markup(keyboard)
+        try:
+            keyboard.append([
+                update.callback_query.message.reply_markup.inline_keyboard[1][0]
+            ])
+        except Exception:
+            pass
+        
+        try:
+            keyboard.append([
+                update.callback_query.message.reply_markup.inline_keyboard[2][0]
+            ])
+        except Exception:
+            pass
+
+        await update.callback_query.edit_message_reply_markup(InlineKeyboardMarkup(keyboard))
 
     elif 'delete_from_favourites' in user_answer:
         int_op = int(user_answer[user_answer.find(",") + 1:])
@@ -346,19 +355,28 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer('✅ Удалено из избранных')
 
         paint_data = json_loader.getPaintingData(int_op)
-        keyboard = InlineKeyboardMarkup(
+        keyboard = [
             [
-                [
-                    InlineKeyboardButton('❤️ Добавить в избранное',
-                                         callback_data=f'add_to_favourites, {int_op}')
-                ],
-                [
-                    update.callback_query.message.reply_markup.inline_keyboard[1][0]
-                ]
-            ]
-        )
+                InlineKeyboardButton('❤️ Добавить в избранное',
+                                     callback_data=f'add_to_favourites, {int_op}')
+            ],
+        ]
 
-        await update.callback_query.edit_message_reply_markup(keyboard)
+        try:
+            keyboard.append([
+                update.callback_query.message.reply_markup.inline_keyboard[1][0]
+            ])
+        except Exception:
+            pass
+        
+        try:
+            keyboard.append([
+                update.callback_query.message.reply_markup.inline_keyboard[2][0]
+            ])
+        except Exception:
+            pass
+
+        await update.callback_query.edit_message_reply_markup(InlineKeyboardMarkup(keyboard))
 
     elif 'close' in user_answer:
         if 'close_full_info' not in user_answer:
@@ -368,39 +386,44 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             painting_id = int(user_answer[user_answer.rfind('_')+1:])
 
-            text, keyboard = generatePaintingTextButtons(painting_id, user_id)
-
-            await update.callback_query.edit_message_text(text, reply_markup=keyboard,
-                                                          parse_mode='Markdown')
+            try:
+                text, keyboard = generatePaintingTextButtons(painting_id, user_id)
+                await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                              parse_mode='Markdown')
+            except Exception:
+                text, keyboard = generatePaintingTextButtons(painting_id, user_id, raw_buttons=True)
+                keyboard.append([
+                    InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+                ])
+                keyboard = InlineKeyboardMarkup(keyboard)
+                await update.callback_query.edit_message_caption(text, reply_markup=keyboard,
+                                                                 parse_mode='Markdown')
 
     elif re.match(r'^open_full_info_[\d]{1,}$', user_answer) is not None:
         painting_id = int(user_answer[user_answer.rfind('_')+1:])
 
-        text, keyboard = generatePaintingTextButtons(painting_id, user_id, True)
-
-        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
-                                                      parse_mode='Markdown')
+        try:
+            text, keyboard = generatePaintingTextButtons(painting_id, user_id, True)
+            await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                          parse_mode='Markdown')
+        except Exception:
+            text, keyboard = generatePaintingTextButtons(painting_id, user_id, True, raw_buttons=True)
+            keyboard.append([
+                InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+            ])
+            keyboard = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_caption(text, reply_markup=keyboard,
+                                                             parse_mode='Markdown')
 
     elif re.match(r'^pnt_btn_[\d]{1,}$', user_answer) is not None:
         painting_id = int(user_answer[user_answer.rfind('_')+1:])
         paint_data = json_loader.getPaintingData(painting_id)
         image_path = os.path.join(os.getenv("QUIZ_IMAGES_PATH"), f'{painting_id}.jpg')
 
-        keyboard = []
-        try:
-            keyboard.append(
-                [
-                    InlineKeyboardButton('Узнать больше', url=f'{paint_data["url"]}')
-                ]
-            )
-        except Exception as e:
-            pass
-
-        keyboard.append([InlineKeyboardButton('🚫 Закрыть', callback_data='close')])
-
-        text = (f'*Название:* {paint_data["name"]}\n' +
-                f'*Автор:* {paint_data["author"]}\n' +
-                f'*Год создания:* {paint_data["date"]}')
+        text, keyboard = generatePaintingTextButtons(painting_id, user_id, raw_buttons=True)
+        keyboard.append([
+            InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+        ])
 
         await context.bot.send_photo(update.effective_user.id, image_path, text,
                                      reply_markup=InlineKeyboardMarkup(keyboard),

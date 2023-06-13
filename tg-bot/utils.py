@@ -77,7 +77,8 @@ def generateSettingsTextButtons(user_settings: dict, favourites_number: int):
     return text, InlineKeyboardMarkup(keyboard)
 
 
-def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool = False):
+def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool = False,
+                                raw_buttons: bool = False):
     paint_data = json_loader.getPaintingData(painting_id)
 
     text = (f'*Название:* {paint_data["name"]}\n' +
@@ -87,7 +88,7 @@ def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool 
 
     if full_text:
         text += f'\n\n{paint_data["text_info"]}'
-    else:
+    elif 'text_info' in paint_data:
         text += '...'
 
     keyboard: list
@@ -126,4 +127,4 @@ def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool 
         except Exception as e:
             pass
 
-    return text, InlineKeyboardMarkup(keyboard)
+    return text, (InlineKeyboardMarkup(keyboard) if not raw_buttons else keyboard)
