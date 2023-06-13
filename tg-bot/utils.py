@@ -75,3 +75,55 @@ def generateSettingsTextButtons(user_settings: dict, favourites_number: int):
     ])
 
     return text, InlineKeyboardMarkup(keyboard)
+
+
+def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool = False):
+    paint_data = json_loader.getPaintingData(painting_id)
+
+    text = (f'*Название:* {paint_data["name"]}\n' +
+            f'*Автор:* {paint_data["author"]}\n' +
+            f'*Год создания:* {paint_data["date"]}\n' +
+            f'*Страна*: {paint_data["country"]}\n')
+
+    if full_text:
+        text += f'\n\n{paint_data["text_info"]}'
+    else:
+        text += '...'
+
+    keyboard: list
+
+    favourites = json_loader.getFavouritesData()
+    if painting_id not in favourites[str(user_id)]:
+        keyboard = [[InlineKeyboardButton(
+            '❤️ Добавить в избранное',
+            callback_data=f'add_to_favourites, {painting_id}')]]
+    else:
+        keyboard = [[InlineKeyboardButton(
+            '💔 Удалить из избранных',
+            callback_data=f'delete_from_favourites, {painting_id}')]]
+
+    if 'text_info' in paint_data:
+        if full_text:
+            keyboard.append([
+                InlineKeyboardButton('📜 Свернуть описание',
+                                     callback_data=f"close_full_info_{painting_id}")
+            ]
+            )
+        else:
+            keyboard.append([
+                InlineKeyboardButton('📜 Развернуть описание',
+                                     callback_data=f"open_full_info_{painting_id}")
+            ]
+            )
+    else:
+        try:
+            keyboard.append(
+                [
+                    InlineKeyboardButton('Узнать больше', url=f'{paint_data["url"]}')
+                ]
+            )
+        # handling possible exception if no url with more info was found
+        except Exception as e:
+            pass
+
+    return text, InlineKeyboardMarkup(keyboard)

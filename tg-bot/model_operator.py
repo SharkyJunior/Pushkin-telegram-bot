@@ -21,6 +21,7 @@ class ModelOperator():
 
     def classify(self, img_path: str) -> int:
         img = Image.open(img_path)
+        img = img.crop((img.width // 5, img.height // 5, img.width // 5 * 4, img.height // 5 * 4))
         img_transformed = TRANSFORM(img)
 
         output = self.model(img_transformed.unsqueeze(0))

@@ -17,7 +17,8 @@ from telegram import (Update, InlineKeyboardMarkup, InlineKeyboardButton)
 from telegram.constants import ChatAction
 from model_operator import ModelOperator
 from db_interactor import JsonLoader
-from utils import generatePaintingSelectionTextButtons, generateSettingsTextButtons
+from utils import (generatePaintingSelectionTextButtons,
+                   generateSettingsTextButtons, generatePaintingTextButtons)
 import quiz
 import os
 
@@ -84,41 +85,11 @@ async def handlePhotos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     int_output = op.classify(str(downloaded_file))
 
     if int_output != -1:
-        paint_data = json_loader.getPaintingData(int_output)
+        text, keyboard = generatePaintingTextButtons(int_output, update.effective_user.id)
 
-        text = (f'*Название:* {paint_data["name"]}\n' +
-                f'*Автор:* {paint_data["author"]}\n' +
-                f'*Год создания:* {paint_data["date"]}')
-
-        await asyncio.sleep(1)
-
-        keyboard: list
-
-        favourites = json_loader.getFavouritesData()
-        if int_output not in favourites[str(update.message.from_user.id)]:
-            keyboard = [[InlineKeyboardButton(
-                '❤️ Добавить в избранное',
-                callback_data=f'add_to_favourites, {int_output}')]]
-        else:
-            keyboard = [[InlineKeyboardButton(
-                '💔 Удалить из избранных',
-                callback_data=f'delete_from_favourites, {int_output}')]]
-
-        # handling possible exception if no url with more info was found
-        try:
-            keyboard.append(
-                [
-                    InlineKeyboardButton('Узнать больше', url=f'{paint_data["url"]}')
-                ]
-            )
-        except Exception as e:
-            pass
-
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard),
-                                        parse_mode="Markdown",
+        await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown",
                                         reply_to_message_id=update.message.id)
     else:
-        await asyncio.sleep(1)
         await update.message.reply_text(
             'Мне кажется, на этой фотографии нет экспоната, который я знаю :(\nПопробуйте еще раз',
             reply_to_message_id=update.message.id
@@ -169,7 +140,7 @@ async def handleSettings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         opened_settings[str(update.effective_user.id)] = settings_menu.id
     else:
         try:
-            error_message = await context.bot.send_message(user_id, '👆 Настройки уже открыты        👆',
+            error_message = await context.bot.send_message(user_id, '👆 Настройки уже открыты       👆',
                                                            reply_to_message_id=opened_settings[str(user_id)])
             await asyncio.sleep(10)
             await error_message.delete()
@@ -346,20 +317,12 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [
                     InlineKeyboardButton('💔 Удалить из избранных',
                                          callback_data=f'delete_from_favourites, {int_op}')
+                ],
+                [
+                    update.callback_query.message.reply_markup.inline_keyboard[1][0]
                 ]
             ]
         )
-
-        # handling possible exception if no url with more info was found
-        try:
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        'Узнать больше', url=f'{paint_data["url"]}')
-                ]
-            )
-        except Exception as e:
-            pass
 
         await update.callback_query.edit_message_reply_markup(keyboard)
 
@@ -388,27 +351,35 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [
                     InlineKeyboardButton('❤️ Добавить в избранное',
                                          callback_data=f'add_to_favourites, {int_op}')
+                ],
+                [
+                    update.callback_query.message.reply_markup.inline_keyboard[1][0]
                 ]
             ]
         )
 
-        # handling possible exception if no url with more info was found
-        try:
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        'Узнать больше', url=f'{paint_data["url"]}')
-                ]
-            )
-        except Exception as e:
-            pass
-
         await update.callback_query.edit_message_reply_markup(keyboard)
 
     elif 'close' in user_answer:
-        await update.callback_query.delete_message()
-        if user_answer == 'close_fav':
-            opened_favourites.pop(str(update.callback_query.from_user.id), None)
+        if 'close_full_info' not in user_answer:
+            await update.callback_query.delete_message()
+            if user_answer == 'close_fav':
+                opened_favourites.pop(str(update.callback_query.from_user.id), None)
+        else:
+            painting_id = int(user_answer[user_answer.rfind('_')+1:])
+
+            text, keyboard = generatePaintingTextButtons(painting_id, user_id)
+
+            await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                          parse_mode='Markdown')
+
+    elif re.match(r'^open_full_info_[\d]{1,}$', user_answer) is not None:
+        painting_id = int(user_answer[user_answer.rfind('_')+1:])
+
+        text, keyboard = generatePaintingTextButtons(painting_id, user_id, True)
+
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard,
+                                                      parse_mode='Markdown')
 
     elif re.match(r'^pnt_btn_[\d]{1,}$', user_answer) is not None:
         painting_id = int(user_answer[user_answer.rfind('_')+1:])
@@ -425,7 +396,7 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             pass
 
-        keyboard.append([InlineKeyboardButton('🚫 Закрыть меню', callback_data='close_fav')])
+        keyboard.append([InlineKeyboardButton('🚫 Закрыть', callback_data='close')])
 
         text = (f'*Название:* {paint_data["name"]}\n' +
                 f'*Автор:* {paint_data["author"]}\n' +
