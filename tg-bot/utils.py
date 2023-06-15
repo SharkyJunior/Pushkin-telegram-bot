@@ -8,44 +8,50 @@ def generatePaintingSelectionTextButtons(user_favourites: list, page: int = 0):
     user_favourites.reverse()
     text = 'Список понравившихся:\n\n'
 
-    paints_after = len(user_favourites) - 5 * page
-    for i in range(5 * page, 5 * page + min(paints_after, 5)):
-        paint_data = json_loader.getPaintingData(user_favourites[i])
-        text += f'{(i - 5 * page + 1) % 6}. *{paint_data["name"]}*\nАвтор: *{paint_data["author"]}*\n\n'
-
     keyboard = []
 
-    first_row_len = 1
-    pg_amount = (len(user_favourites) // 5)
-    # checking if we need pagination
-    if len(user_favourites) > 5:
-        if page < pg_amount:
-            keyboard.append([
-                InlineKeyboardButton('>> Следующая страница >>', callback_data=f'next_pg_{page+1}')
-            ])
-        if page > 0:
-            keyboard.append([
-                InlineKeyboardButton('<< Предыдущая страница <<', callback_data=f'next_pg_{page-1}')
-            ])
-        text += f'(Страница {page+1} из {len(user_favourites) // 5 + 1})'
+    if len(user_favourites) > 0:
+        paints_after = len(user_favourites) - 5 * page
+        for i in range(5 * page, 5 * page + min(paints_after, 5)):
+            paint_data = json_loader.getPaintingData(user_favourites[i])
+            text += f'{(i - 5 * page + 1) % 6}. *{paint_data["name"]}*\nАвтор: *{paint_data["author"]}*\n\n'
 
-    if 2 <= paints_after <= 4:
-        first_row_len = 2
-    elif paints_after >= 5:
-        first_row_len = 3
+        first_row_len = 1
+        pg_amount = (len(user_favourites) // 5)
+        # checking if we need pagination
+        if len(user_favourites) > 5:
+            if page < pg_amount:
+                keyboard.append([
+                    InlineKeyboardButton('>> Следующая страница >>',
+                                         callback_data=f'next_pg_{page+1}')
+                ])
+            if page > 0:
+                keyboard.append([
+                    InlineKeyboardButton('<< Предыдущая страница <<',
+                                         callback_data=f'next_pg_{page-1}')
+                ])
+            text += f'(Страница {page+1} из {len(user_favourites) // 5 + 1})'
 
-    first_row = []
-    for i in range(first_row_len):
-        first_row.append(InlineKeyboardButton(
-            f'🏞 {str(i + 1)}', callback_data=f'pnt_btn_{user_favourites[page * 5 + i]}'))
-    keyboard.append(first_row)
+        if 2 <= paints_after <= 4:
+            first_row_len = 2
+        elif paints_after >= 5:
+            first_row_len = 3
 
-    second_row = []
-    for i in range((min(paints_after, 5) - first_row_len)):
-        second_row.append(InlineKeyboardButton(f'🏞 {str(first_row_len + i + 1)}',
-                                               callback_data=f'pnt_btn_{user_favourites[page * 5 + first_row_len + i]}'))
-    if len(second_row) > 0:
-        keyboard.append(second_row)
+        first_row = []
+        for i in range(first_row_len):
+            first_row.append(InlineKeyboardButton(
+                f'🏞 {str(i + 1)}', callback_data=f'pnt_btn_{user_favourites[page * 5 + i]}'))
+        keyboard.append(first_row)
+
+        second_row = []
+        for i in range((min(paints_after, 5) - first_row_len)):
+            second_row.append(InlineKeyboardButton(f'🏞 {str(first_row_len + i + 1)}',
+                                                   callback_data=f'pnt_btn_{user_favourites[page * 5 + first_row_len + i]}'))
+        if len(second_row) > 0:
+            keyboard.append(second_row)
+
+    else:
+        text += 'Упс, тут ничего нет...Отправь мне фото картины, тогда сможешь добавить ее в избранные'
 
     keyboard.append([InlineKeyboardButton('🚫 Закрыть меню', callback_data='close_fav')])
 
@@ -78,18 +84,19 @@ def generateSettingsTextButtons(user_settings: dict, favourites_number: int):
 
 
 def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool = False,
-                                raw_buttons: bool = False):
+                                raw_buttons: bool = False, quizStatus: str = 'none'):
     paint_data = json_loader.getPaintingData(painting_id)
+    text = ''
 
-    text = (f'*Название:* {paint_data["name"]}\n' +
-            f'*Автор:* {paint_data["author"]}\n' +
-            f'*Год создания:* {paint_data["date"]}\n' +
-            f'*Страна*: {paint_data["country"]}\n')
+    if quizStatus == 'True':
+        text += '🎉 Правильно!\n\n'
+    elif quizStatus == 'False':
+        text += '😣 Неверно...\n\n'
 
-    if full_text:
-        text += f'\n\n{paint_data["text_info"]}'
-    elif 'text_info' in paint_data:
-        text += '...'
+    text += (f'*Название:* {paint_data["name"]}\n' +
+             f'*Автор:* {paint_data["author"]}\n' +
+             f'*Год создания:* {paint_data["date"]}\n' +
+             f'*Страна*: {paint_data["country"]}\n')
 
     keyboard: list
 
@@ -103,17 +110,19 @@ def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool 
             '💔 Удалить из избранных',
             callback_data=f'delete_from_favourites, {painting_id}')]]
 
-    if 'text_info' in paint_data:
+    if 'text_info' in paint_data and len(text + f'\n\n{paint_data["text_info"]}') < 1024:
         if full_text:
+            text += f'\n\n{paint_data["text_info"]}'
             keyboard.append([
                 InlineKeyboardButton('📜 Свернуть описание',
-                                     callback_data=f"close_full_info_{painting_id}")
+                                     callback_data=f"{quizStatus} close_full_info_{painting_id}")
             ]
             )
         else:
+            text += '...'
             keyboard.append([
                 InlineKeyboardButton('📜 Развернуть описание',
-                                     callback_data=f"open_full_info_{painting_id}")
+                                     callback_data=f"{quizStatus} open_full_info_{painting_id}")
             ]
             )
     else:
@@ -126,5 +135,8 @@ def generatePaintingTextButtons(painting_id: int, user_id: int, full_text: bool 
         # handling possible exception if no url with more info was found
         except Exception as e:
             pass
+
+    if quizStatus != 'none':
+        keyboard.append([InlineKeyboardButton('🔄 Новый вопрос', callback_data="anotherQuestion")])
 
     return text, (InlineKeyboardMarkup(keyboard) if not raw_buttons else keyboard)

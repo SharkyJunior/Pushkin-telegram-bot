@@ -140,8 +140,9 @@ async def handleSettings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         opened_settings[str(update.effective_user.id)] = settings_menu.id
     else:
         try:
-            error_message = await context.bot.send_message(user_id, '👆 Настройки уже открыты       👆',
-                                                           reply_to_message_id=opened_settings[str(user_id)])
+            error_message = await context.bot.send_message(
+                user_id, '👆 Настройки уже открыты 👆',
+                reply_to_message_id=opened_settings[str(user_id)])
             await asyncio.sleep(10)
             await error_message.delete()
         except Exception:
@@ -163,18 +164,17 @@ async def handleShowFavourites(update: Update, context: ContextTypes.DEFAULT_TYP
 
     user_favourites: list = json_loader.getFavouritesData()[str(user_id)]
 
-    if str(user_id) not in opened_favourites and len(user_favourites) > 0:
+    if str(user_id) not in opened_favourites:
         text, keyboard = generatePaintingSelectionTextButtons(user_favourites)
 
         favorites_list = await update.message.reply_text(text, reply_markup=keyboard,
                                                          parse_mode="Markdown")
         opened_favourites[str(user_id)] = [favorites_list.id, 0]
-    elif len(user_favourites) <= 0:
-        favorites_list = await update.message.reply_text('У тебя нет понравившихся картин. Ты сможешь лайкнуть картину, когда отправишь мне ее фотографию')
     else:
         try:
-            error_message = await context.bot.send_message(user_id, '👆 У тебя уже есть открытый список понравившихся 👆',
-                                                           reply_to_message_id=opened_favourites[str(user_id)][0])
+            error_message = await context.bot.send_message(
+                user_id, '👆 У тебя уже есть открытый список понравившихся 👆',
+                reply_to_message_id=opened_favourites[str(user_id)][0])
             await asyncio.sleep(10)
             await error_message.delete()
         except Exception:
@@ -192,29 +192,24 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if re.match(r'^[01]{1} [\d]{1,}$', user_answer):
         data = [int(i) for i in user_answer.split()]
         print(data)
+        quiz_status = True if data[0] == 1 else False
 
         paint_data = json_loader.getPaintingData(data[1])
-        keyboard = []
-        try:
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        'Узнать больше', url=f'{paint_data["url"]}')
-                ]
-            )
-        except Exception as e:
-            pass
+        text, keyboard = generatePaintingTextButtons(
+            data[1], user_id, raw_buttons=True, quizStatus=str(quiz_status))
 
-        if data[0] == 1:
-            await update.callback_query.edit_message_caption(
-                f"Правильный ответ! \nЭто *{paint_data['name']}*,\n"
-                + f"Автор - *{paint_data['author']}*",
-                reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        keyboard.append(
+            [
+                InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+            ]
+        )
+
+        if quiz_status:
+            await update.callback_query.edit_message_caption(text,
+                                                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         else:
-            await update.callback_query.edit_message_caption(
-                f"Неверно :( \nАвтор этой картины - *{paint_data['author']}*.\n"
-                + f"Картина называется *{paint_data['name']}*",
-                reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            await update.callback_query.edit_message_caption(text,
+                                                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
         # recurring quizes prompt after first time playing quiz
         if settings_data[str(update.callback_query.from_user.id)]['quizNotPlayed']:
@@ -225,8 +220,8 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                              callback_data="firstQuiz_yes")
                     ],
                     [
-                        InlineKeyboardButton(
-                            'Нет, спасибо.', callback_data="firstQuiz_no")
+                        InlineKeyboardButton('Нет, спасибо.',
+                                             callback_data="firstQuiz_no")
                     ]
                 ]
             )
@@ -235,6 +230,12 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             settings_data[str(update.callback_query.from_user.id)
                           ]['quizNotPlayed'] = False
             json_loader.updateSettingsData(settings_data)
+
+    elif user_answer == 'anotherQuestion':
+        image_path, keyboard = quiz.generateQuizData()
+
+        await context.bot.send_photo(user_id, image_path, caption="Кто написал эту картину?",
+                                     reply_markup=keyboard)
 
     elif user_answer == 'firstQuiz_yes':
         settings_data[str(update.callback_query.from_user.id)
@@ -319,25 +320,18 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ],
         ]
 
-        try:
-            keyboard.append([
-                update.callback_query.message.reply_markup.inline_keyboard[1][0]
-            ])
-        except Exception:
-            pass
-        
-        try:
-            keyboard.append([
-                update.callback_query.message.reply_markup.inline_keyboard[2][0]
-            ])
-        except Exception:
-            pass
+        for i in range(3):
+            try:
+                keyboard.append([
+                    update.callback_query.message.reply_markup.inline_keyboard[i+1][0]
+                ])
+            except Exception:
+                pass
 
         await update.callback_query.edit_message_reply_markup(InlineKeyboardMarkup(keyboard))
 
     elif 'delete_from_favourites' in user_answer:
         int_op = int(user_answer[user_answer.find(",") + 1:])
-        user_id = update.effective_user.id
         favourites[str(user_id)].remove(int_op)
         json_loader.updateFavouritesData(favourites)
         if str(user_id) in opened_favourites:
@@ -357,24 +351,18 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         paint_data = json_loader.getPaintingData(int_op)
         keyboard = [
             [
-                InlineKeyboardButton('❤️ Добавить в избранное',
+                InlineKeyboardButton('❤️ Добавить в избранные',
                                      callback_data=f'add_to_favourites, {int_op}')
             ],
         ]
 
-        try:
-            keyboard.append([
-                update.callback_query.message.reply_markup.inline_keyboard[1][0]
-            ])
-        except Exception:
-            pass
-        
-        try:
-            keyboard.append([
-                update.callback_query.message.reply_markup.inline_keyboard[2][0]
-            ])
-        except Exception:
-            pass
+        for i in range(3):
+            try:
+                keyboard.append([
+                    update.callback_query.message.reply_markup.inline_keyboard[i+1][0]
+                ])
+            except Exception:
+                pass
 
         await update.callback_query.edit_message_reply_markup(InlineKeyboardMarkup(keyboard))
 
@@ -392,6 +380,14 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                               parse_mode='Markdown')
             except Exception:
                 text, keyboard = generatePaintingTextButtons(painting_id, user_id, raw_buttons=True)
+                if 'True' in user_answer:
+                    text, keyboard = generatePaintingTextButtons(
+                        painting_id, user_id, quizStatus='True', raw_buttons=True)
+
+                elif 'False' in user_answer:
+                    text, keyboard = generatePaintingTextButtons(
+                        painting_id, user_id, quizStatus='False', raw_buttons=True)
+
                 keyboard.append([
                     InlineKeyboardButton('🚫 Закрыть', callback_data='close')
                 ])
@@ -399,7 +395,7 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.callback_query.edit_message_caption(text, reply_markup=keyboard,
                                                                  parse_mode='Markdown')
 
-    elif re.match(r'^open_full_info_[\d]{1,}$', user_answer) is not None:
+    elif 'open_full_info' in user_answer:
         painting_id = int(user_answer[user_answer.rfind('_')+1:])
 
         try:
@@ -407,7 +403,14 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.edit_message_text(text, reply_markup=keyboard,
                                                           parse_mode='Markdown')
         except Exception:
-            text, keyboard = generatePaintingTextButtons(painting_id, user_id, True, raw_buttons=True)
+            text, keyboard = generatePaintingTextButtons(
+                painting_id, user_id, True, raw_buttons=True)
+            if 'True' in user_answer:
+                text, keyboard = generatePaintingTextButtons(
+                    painting_id, user_id, True, quizStatus='True', raw_buttons=True)
+            elif 'False' in user_answer:
+                text, keyboard = generatePaintingTextButtons(
+                    painting_id, user_id, True, quizStatus='False', raw_buttons=True)
             keyboard.append([
                 InlineKeyboardButton('🚫 Закрыть', callback_data='close')
             ])
@@ -485,14 +488,14 @@ async def handleCallBack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton('1 раз в день',
-                                         callback_data="timesPerDay-1"),
+                    InlineKeyboardButton(
+                        '1 раз в день', callback_data="timesPerDay-1"),
                     InlineKeyboardButton(
                         '2 раза в день', callback_data="timesPerDay-2")
                 ],
                 [
-                    InlineKeyboardButton('3 раза в день',
-                                         callback_data="timesPerDay-3"),
+                    InlineKeyboardButton(
+                        '3 раза в день', callback_data="timesPerDay-3"),
                     InlineKeyboardButton(
                         '4 раза в день', callback_data="timesPerDay-4")
                 ]
@@ -560,13 +563,13 @@ if __name__ == '__main__':
 
     app.add_handler(CommandHandler('start', handleStart))
     app.add_handler(CommandHandler('settings', handleSettings))
-    app.add_handler(CommandHandler('quiz', handleQuizCmd))
+    app.add_handler(CommandHandler('question', handleQuizCmd))
     app.add_handler(CommandHandler('favourites', handleShowFavourites))
 
     app.add_handler(MessageHandler(
         filters.PHOTO & filters.ChatType.PRIVATE, handlePhotos))
 
-    app.add_handler(MessageHandler(~filters.PHOTO &
-                                   ~filters.COMMAND, handleNotPhotos))
+    app.add_handler(MessageHandler(
+        ~filters.PHOTO & ~filters.COMMAND, handleNotPhotos))
 
     app.run_polling()
