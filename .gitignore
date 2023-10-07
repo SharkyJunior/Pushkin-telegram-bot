@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+pictures/
+Pushkin_bot_dataset/
+dataset/
+runs/
+testing/
+json/
