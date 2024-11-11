@@ -175,8 +175,6 @@ async def handleShowFavourites(update: Update, context: ContextTypes.DEFAULT_TYP
             error_message = await context.bot.send_message(
                 user_id, '👆 У тебя уже есть открытый список понравившихся 👆',
                 reply_to_message_id=opened_favourites[str(user_id)][0])
-            await asyncio.sleep(10)
-            await error_message.delete()
         except Exception:
             opened_favourites.pop(str(update.message.from_user.id), None)
             await handleShowFavourites(update, context)
@@ -550,14 +548,14 @@ def count_min_sec_remainder() -> int:
 
 
 if __name__ == '__main__':
-    job_queue = app.job_queue
-    delta = count_min_sec_remainder()
-    jobdelta = timedelta(minutes=delta[0], seconds=delta[1])
-    print(f'Time delta: {delta[0]}m {delta[1]}s\n' + '-' * 30)
-    job_minute = job_queue.run_repeating(
-        callback_time, interval=60*60, first=jobdelta)
+    # job_queue = app.job_queue
+    # delta = count_min_sec_remainder()
+    # jobdelta = timedelta(minutes=delta[0], seconds=delta[1])
+    # print(f'Time delta: {delta[0]}m {delta[1]}s\n' + '-' * 30)
+    # job_minute = job_queue.run_repeating(
+    #     callback_time, interval=60*60, first=jobdelta)
 
-    job_queue.start()
+    # job_queue.start()
 
     app.add_handler(CallbackQueryHandler(handleCallBack))
 
